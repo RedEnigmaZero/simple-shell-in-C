@@ -87,7 +87,7 @@ int main(void)
                                 printf("+ completed '%s' [%d]\n", commondin, WEXITSTATUS(status));
                         } else 
                         {
-                                printf("Error: command not found\n");
+                                printf("Error: too many process arguments\n");
                         }
                         
                         
