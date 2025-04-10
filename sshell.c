@@ -15,6 +15,10 @@ char **parse_command(char *cmd)
 
         arg = strtok(cmd, " ");
         while (arg != NULL) {
+                if (i >= 16) {
+                        return NULL;
+                }
+                
                 args[i++] = arg;
                 arg = strtok(NULL, " ");
         }
@@ -30,7 +34,7 @@ int main(void)
 
         while (1) {
                 char *nl;
-                int retval;
+                //int retval;
 
                 /* Print prompt */
                 printf("sshell@ucd$ ");
@@ -59,24 +63,33 @@ int main(void)
                         break;
                 }
 
-                char *commondin = strdup(cmd);
+                char *commondin = malloc(strlen(cmd) + 1);
+                strcpy(commondin, cmd);
                 
                 pid_t pid;
                 char **args = parse_command(cmd);
+
 
                 pid = fork();
                 if (pid == 0)
                 {
                         /* Child */
                         execvp(args[0], args);
-                        perror("execvp");
+                        fprintf(stderr, "Error: command not found\n");
                         exit(1);
                 } else if (pid > 0)
                 {
-                                /* Parent */
-                                int status;
-                                waitpid(pid, &status, 0);
+                        /* Parent */
+                        int status;
+                        waitpid(pid, &status, 0);
+                        if (args != NULL) {
                                 printf("+ completed '%s' [%d]\n", commondin, WEXITSTATUS(status));
+                        } else 
+                        {
+                                printf("Error: command not found\n");
+                        }
+                        
+                        
                 }
                 else
                 {
