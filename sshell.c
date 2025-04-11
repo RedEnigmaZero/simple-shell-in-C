@@ -31,6 +31,7 @@ int main(void)
 {
         char cmd[CMDLINE_MAX];
         char *eof;
+        char commondin[CMDLINE_MAX];
 
         while (1) {
                 char *nl;
@@ -56,6 +57,8 @@ int main(void)
                 nl = strchr(cmd, '\n');
                 if (nl)
                         *nl = '\0';
+                
+                strncpy(commondin, cmd, CMDLINE_MAX);
 
                 /* Builtin command */
                 if (!strcmp(cmd, "exit")) {
@@ -63,12 +66,15 @@ int main(void)
                         fprintf(stderr, "+ completed 'exit' [0]\n");
                         break;
                 }
-
-                char *commondin = malloc(strlen(cmd) + 1);
-                strcpy(commondin, cmd);
                 
                 pid_t pid;
                 char **args = parse_command(cmd);
+
+                char *t = strtok(cmd, " \t");
+                if (t == NULL)
+                {
+                        continue;
+                }
 
 
                 pid = fork();
@@ -99,7 +105,6 @@ int main(void)
                 }
 
                 free(args);
-                free(commondin);
                 
                 
 
