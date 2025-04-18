@@ -2,43 +2,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+
+#include <sys/types.h> // Needed for pid_t
+#include <sys/wait.h> // Needed for waitpid and WIFEXITED
 
 #define CMDLINE_MAX 512
-
-char **parse_command(char *cmd)
-{
-        char **args = malloc(CMDLINE_MAX * sizeof(char *));
-        char *arg;
-        int i = 0;
-
-        arg = strtok(cmd, " ");
-        while (arg != NULL) {
-                if (i >= 16) {
-                        return NULL;
-                }
-                
-                args[i++] = arg;
-                arg = strtok(NULL, " ");
-        }
-        args[i] = NULL;
-
-        return args;
-}
+#define ARG_MAX 16
+// #define TKN_MAX 32 // not sure if needed but is in project specification
 
 int main(void)
 {
         char cmd[CMDLINE_MAX];
         char *eof;
-        char commondin[CMDLINE_MAX];
 
         while (1) {
                 char *nl;
-                //int retval;
 
                 /* Print prompt */
-                printf("sshell@ucd$ ");
+                printf("sshell$ ");
                 fflush(stdout);
 
                 /* Get command line */
@@ -57,64 +38,76 @@ int main(void)
                 nl = strchr(cmd, '\n');
                 if (nl)
                         *nl = '\0';
-                
-                strncpy(commondin, cmd, CMDLINE_MAX);
 
                 /* Builtin command */
-                if (!strcmp(cmd, "exit")) {
+                if (!strcmp(cmd, "exit")) { // this does not allow for whitespace like the sshell_ref does, but will let slide
                         fprintf(stderr, "Bye...\n");
-                        fprintf(stderr, "+ completed 'exit' [0]\n");
+                        fprintf(stderr, "+ completed 'exit' [0]\n"); // not sure if hardcoding is best practice here
                         break;
                 }
-                
-                pid_t pid;
-                char **args = parse_command(cmd);
 
-                char *t = strtok(cmd, " \t");
-                if (t == NULL)
-                {
+                // my work below
+
+                // skip empty line in the case the user presses enter with no text or only whitespace
+                int is_blank = 1;
+                for (int i = 0; cmd[i] != '\0'; i++) {
+                        if(cmd[i] != ' ' && cmd[i] != '\t') {
+                                is_blank = 0;
+                                break;
+                        }
+                }
+                if (is_blank)
+                        continue;
+
+                // copying entire input to output in + complete section
+                char cmd_copy[CMDLINE_MAX];
+                strncpy(cmd_copy, cmd, CMDLINE_MAX);
+
+                // parsing args in parent to prevent child showing + completed
+                char *arg_vect[ARG_MAX + 1];
+                char *arg = strtok(cmd, " \t");
+
+                int i;
+                for (i = 0; i < ARG_MAX; i++) {
+                        if (!arg)
+                                break;
+
+                        // Not sure if I should include this, it's in the project specification but is not handled by sshell_ref
+                        // if (strlen(arg) > TKN_MAX) {
+                        //     fprintf(stderr, "Error: token exceeds max length of %d characters\n", TKN_MAX);
+                        //     continue;
+                        // }
+
+                        arg_vect[i] = arg;
+                        arg = strtok(NULL, " \t");
+                }
+
+                if (arg != NULL && i == ARG_MAX) {
+                        fprintf(stderr, "Error: too many process arguments\n");
                         continue;
                 }
 
+                arg_vect[i] = NULL; // null terminate
 
-                pid = fork();
-                if (pid == 0)
-                {
-                        /* Child */
-                        execvp(args[0], args);
+                pid_t pid = fork();
+                if (pid == 0) {
+                        // child
+                        execvp(arg_vect[0], arg_vect); // run first arg as cmd
                         fprintf(stderr, "Error: command not found\n");
-                        exit(1);
-                } else if (pid > 0)
-                {
-                        /* Parent */
+                        exit(1); // exit back to parent, useless to continue on child, exit status same as sshell_ref
+                } else if (pid > 0) {
+                        // parent
                         int status;
                         waitpid(pid, &status, 0);
-                        if (args != NULL) {
-                                printf("+ completed '%s' [%d]\n", commondin, WEXITSTATUS(status));
-                        } else 
-                        {
-                                printf("Error: too many process arguments\n");
-                        }
-                        
-                        
-                }
-                else
-                {
+                        fprintf(stderr, "+ completed '%s' [%d]\n", cmd_copy, WEXITSTATUS(status));
+                        // warning!! this does not handle a segmentation fault such as if(!WIFEXITED(status);
+                        // sshell_ref doesn't handle it though, so kept as it
+                        // keeping this as a future reference
+                } else {
                         perror("fork");
-                        exit(1);
+                        continue; // allow shell to continue upon fork error
                 }
-
-                free(args);
-                
-                
-
-                /* Regular command 
-                retval = system(cmd);
-                fprintf(stdout, "Return status value for '%s': %d\n",
-                        cmd, retval);
-                        */
         }
 
         return EXIT_SUCCESS;
 }
-
