@@ -224,31 +224,6 @@ int main(void)
                 char *arg_vect[ARG_MAX + 1];
                 char *arg = strtok(cmd, " \t");
 
-                /* CHANGE DIRECTORY */
-                if (!strcmp(cmd, "cd")) {
-                        char *target = arg_vect[1];
-                    
-                        // If no argument is given, go to HOME
-                        if (target == NULL) {
-                            target = getenv("HOME");
-                            if (target == NULL) {
-                                fprintf(stderr, "cd: HOME not set\n");
-                                fprintf(stderr, "+ completed 'cd' [1]\n");
-                                continue;
-                            }
-                        }
-                    
-                        // Try to change directory
-                        if (chdir(target) == 0) {
-                            fprintf(stderr, "+ completed 'cd' [0]\n");
-                        } else {
-                            perror("cd");
-                            fprintf(stderr, "+ completed 'cd' [1]\n");
-                        }
-                    
-                        continue;
-                }
-
                 int s = 0;
                 int pipe_count = 0;
 
@@ -279,6 +254,31 @@ int main(void)
                 }
 
                 arg_vect[i] = NULL; // null terminate
+
+                /* CHANGE DIRECTORY */
+                if (!strcmp(arg_vect[0], "cd")) {
+                        char *target = arg_vect[1];
+                        
+                        // If no argument is given, go to HOME
+                        if (target == NULL) {
+                                target = getenv("HOME");
+                                if (target == NULL) {
+                                fprintf(stderr, "cd: HOME not set\n");
+                                fprintf(stderr, "+ completed 'cd' [1]\n");
+                                continue;
+                                }
+                        }
+                        
+                        // Try to change directory
+                        if (chdir(target) == 0) {
+                                fprintf(stderr, "+ completed 'cd' [0]\n");
+                        } else {
+                                perror("cd");
+                                fprintf(stderr, "+ completed 'cd' [1]\n");
+                        }
+                        
+                        continue;
+                }
 
                 pid_t pid = fork();
                 if (pid == 0) {
