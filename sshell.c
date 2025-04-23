@@ -273,7 +273,7 @@ int main(void)
                         if (chdir(target) == 0) {
                                 fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
                         } else {
-                                fprintf(stderr, "Error: cannot cd into directory\n");
+                                perror("cd"); // Is this different?
                                 fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
                         }
                         
