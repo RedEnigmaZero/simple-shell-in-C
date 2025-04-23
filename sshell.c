@@ -263,18 +263,18 @@ int main(void)
                         if (target == NULL) {
                                 target = getenv("HOME");
                                 if (target == NULL) {
-                                fprintf(stderr, "cd: HOME not set\n");
-                                fprintf(stderr, "+ completed 'cd' [1]\n");
+                                fprintf(stderr, "cd: HOME not set\n"); // Do I need this?
+                                fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
                                 continue;
                                 }
                         }
                         
                         // Try to change directory
                         if (chdir(target) == 0) {
-                                fprintf(stderr, "+ completed 'cd' [0]\n");
+                                fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
                         } else {
-                                perror("cd");
-                                fprintf(stderr, "+ completed 'cd' [1]\n");
+                                perror("cd"); // Is this different?
+                                fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
                         }
                         
                         continue;
