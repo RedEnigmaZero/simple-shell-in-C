@@ -159,6 +159,19 @@ builtin_exit() {
 }
 TEST_CASES+=("builtin_exit")
 
+exit_retval() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    run_test_case "exit\n"
+
+    local line_array=("${RET}")
+    local corr_array=("0")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("exit_retval")
+
 ## Commands with no arguments
 cmd_no_arg_1() {
     log "--- Running test case: ${FUNCNAME} ---"
@@ -179,6 +192,39 @@ cmd_no_arg_1() {
 }
 TEST_CASES+=("cmd_no_arg_1")
 
+cmd_no_arg_2() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    run_test_case "echo\nexit\n"
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "2")")
+    local corr_array=()
+    corr_array+=("")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("cmd_no_arg_2")
+
+## Command without argument -- error
+cmd_not_found() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    run_test_case "commandthatdoesntexists\nexit\n"
+
+    local line_array=()
+    line_array+=("$(select_line "${STDERR}" "1")")
+    line_array+=("$(select_line "${STDERR}" "2")")
+    local corr_array=()
+    corr_array+=("Error: command not found")
+    corr_array+=("+ completed 'commandthatdoesntexists' [1]")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("cmd_not_found")
+
 ## Commands with arguments
 cmd_one_arg() {
     log "--- Running test case: ${FUNCNAME} ---"
@@ -196,6 +242,168 @@ cmd_one_arg() {
     log "${score}"
 }
 TEST_CASES+=("cmd_one_arg")
+
+cmd_one_arg_success() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    mkdir dir_test && touch dir_test/lstest
+    run_test_case "ls dir_test\nexit\n"
+    rm -rf dir_test
+
+    local line_array=()
+    line_array+=("$(select_line "${STDERR}" "1")")
+    local corr_array=()
+    corr_array+=("+ completed 'ls dir_test' [0]")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("cmd_one_arg_success")
+
+cmd_one_arg_fail() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    rm -rf dir_test
+    run_test_case "ls dir_test\nexit\n"
+
+    local line_array=()
+    line_array+=("$(select_line "${STDERR}" "2")")
+    local corr_array=()
+    corr_array+=("+ completed 'ls dir_test' [2]")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("cmd_one_arg_fail")
+
+cmd_16_args() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    run_test_case "echo a a a a a a a a a a a a a a a\nexit\n"
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "2")")
+    local corr_array=()
+    corr_array+=("a a a a a a a a a a a a a a a")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("cmd_16_args")
+
+cmd_one_arg_whitespace() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    mkdir dir_test && touch dir_test/lstest
+    run_test_case "    ls    dir_test\nexit\n"
+    rm -rf dir_test
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "2")")
+    line_array+=("$(select_line "${STDERR}" "1")")
+    local corr_array=()
+    corr_array+=("lstest")
+    corr_array+=("+ completed '    ls    dir_test' [0]")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("cmd_one_arg_whitespace")
+
+## Builtin commands
+cd_pwd() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    run_test_case "mkdir -p dir_test\ncd dir_test\npwd\nexit\n"
+    rm -rf dir_test
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "4")")
+    line_array+=("$(select_line "${STDERR}" "2")")
+    local corr_array=()
+    corr_array+=("${PWD}/dir_test")
+    corr_array+=("+ completed 'cd dir_test' [0]")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("cd_pwd")
+
+## Output redirection
+out_redir() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    run_test_case "echo hello > t\ncat t\nexit\n"
+    rm -f t
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "3")")
+    local corr_array=()
+    corr_array+=("hello")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("out_redir")
+
+## Piped commands
+pipe() {
+    log "--- Running test case: ${FUNCNAME} ---"
+    echo -e "HELLO world\nhello WORLD" > t
+    run_test_case "cat t | grep hello\nexit\n"
+    rm -f t
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "2")")
+    local corr_array=()
+    corr_array+=("hello WORLD")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("pipe")
+
+## Extra feature #1: input redirection
+in_redir() {
+    log "--- Running ${FUNCNAME} ---"
+    echo hello > t
+    run_test_case "grep he < t\nexit\n"
+    rm t
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "2")")
+    local corr_array=()
+    corr_array+=("hello")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("in_redir")
+
+## Extra feature #2: background jobs
+background() {
+    log "--- Running ${FUNCNAME} ---"
+    log "(Note: this test might hang a little)"
+    run_test_case "sleep 1&\nsleep 2\nexit\n" 5
+
+    local line_array=()
+    line_array+=("$(select_line "${STDOUT}" "2")")
+    line_array+=("$(select_line "${STDERR}" "1")")
+    line_array+=("$(select_line "${STDERR}" "2")")
+    line_array+=("$(select_line "${STDERR}" "3")")
+    local corr_array=()
+    corr_array+=("sshell@ucd$ sleep 2")
+    corr_array+=("+ completed 'sleep 1&' [0]")
+    corr_array+=("+ completed 'sleep 2' [0]")
+    corr_array+=("Bye...")
+
+    local score
+    compare_lines line_array[@] corr_array[@] score
+    log "${score}"
+}
+TEST_CASES+=("background")
 
 #
 # Main functions
