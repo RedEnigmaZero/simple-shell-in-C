@@ -9,94 +9,99 @@
 #define CMDLINE_MAX 512
 #define ARG_MAX 16
 // #define TKN_MAX 32 // not sure if needed but is in project specification
+#define PATH_MAX 4096
 
-void piping(char *cmdline)
+void piping(char *cmdline, int pipe_count, int *exit_status)
 {
-        int pipefd[2];
-        pid_t pid1, pid2;
-        char *cmd1[ARG_MAX + 1];
-        char *cmd2[ARG_MAX + 1];
-        int i = 0;
+        int pipes[pipe_count][2];
+        pid_t pids[pipe_count + 1];
+        char *commands[pipe_count + 1][ARG_MAX + 1];
+        int i, j;
         
         // Create local copy of command to parse
         char cmd_copy[CMDLINE_MAX];
         strncpy(cmd_copy, cmdline, CMDLINE_MAX);
         
-        // Parse first command (before pipe)
+        // Parse all commands
         char *arg = strtok(cmd_copy, " \t");
-        while (arg != NULL && strcmp(arg, "|") != 0) {
-                if (i >= ARG_MAX) {
-                        fprintf(stderr, "Error: too many process arguments\n");
-                        return;
-                }
-                cmd1[i++] = arg;
-                arg = strtok(NULL, " \t");
-        }
-        cmd1[i] = NULL;
-
-        // Parse second command (after pipe)
-        i = 0;
-        arg = strtok(NULL, " \t");  // Get first token after pipe
-        while (arg != NULL) {
-                if (i >= ARG_MAX) {
-                        fprintf(stderr, "Error: too many process arguments\n");
-                        return;
-                }
-                cmd2[i++] = arg;
-                arg = strtok(NULL, " \t");
-        }
-        cmd2[i] = NULL;
-
-        // Create pipe
-        if (pipe(pipefd) == -1) {
-                perror("pipe");
-                return;
-        }
-
-        // Fork first child
-        if ((pid1 = fork()) == -1) {
-                perror("fork");
-                close(pipefd[0]);
-                close(pipefd[1]);
-                return;
-        }
-
-        if (pid1 == 0) {
-                // First child - writes to pipe
-                close(pipefd[0]);  // Close read end
-                dup2(pipefd[1], STDOUT_FILENO);  // Redirect stdout to pipe
-                close(pipefd[1]);  // Close write end after dup2
-                execvp(cmd1[0], cmd1);
-                perror("execvp");
-                exit(1);
-        }
-
-        // Fork second child
-        if ((pid2 = fork()) == -1) {
-                perror("fork");
-                close(pipefd[0]);
-                close(pipefd[1]);
-                return;
-        }
-
-        if (pid2 == 0) {
-                // Second child - reads from pipe
-                close(pipefd[1]);  // Close write end
-                dup2(pipefd[0], STDIN_FILENO);  // Redirect stdin to pipe
-                close(pipefd[0]);  // Close read end after dup2
-                execvp(cmd2[0], cmd2);
-                perror("execvp");
-                exit(1);
-        }
-
-        // Parent process
-        close(pipefd[0]);
-        close(pipefd[1]);
+        i = 0;  // command index
+        j = 0;  // argument index
         
-        // Wait for both children
-        int status1, status2;
-        waitpid(pid1, &status1, 0);
-        waitpid(pid2, &status2, 0);
+        while (arg != NULL) {
+                if (strcmp(arg, "|") == 0) {
+                        commands[i][j] = NULL;  // Null terminate current command
+                        i++;  // Move to next command
+                        j = 0;  // Reset argument index
+                } else {
+                        if (j >= ARG_MAX) {
+                                fprintf(stderr, "Error: too many process arguments\n");
+                                return;
+                        }
+                        commands[i][j++] = arg;
+                }
+                arg = strtok(NULL, " \t");
+        }
+        commands[i][j] = NULL;  // Null terminate last command
+        
+        // Create all pipes
+        for (i = 0; i < pipe_count; i++) {
+                if (pipe(pipes[i]) == -1) {
+                        perror("pipe");
+                        return;
+                }
+        }
+        
+        // Create all processes
+        for (i = 0; i <= pipe_count; i++) {
+                pids[i] = fork();
+                if (pids[i] == -1) {
+                        perror("fork");
+                        return;
+                }
+                
+                if (pids[i] == 0) {
+                        // Child process
+                        if (i > 0) {
+                                if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
+                                        perror("dup2");
+                                        exit(1);
+                                }
+                        }
+                        if (i < pipe_count) {
+                                if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
+                                        perror("dup2");
+                                        exit(1);
+                                }
+                        }
+                        
+                        // Close all pipe fds
+                        for (j = 0; j < pipe_count; j++) {
+                                close(pipes[j][0]);
+                                close(pipes[j][1]);
+                        }
+                        
+                        execvp(commands[i][0], commands[i]);
+                        fprintf(stderr, "Error: command not found\n");
+                        exit(1);
+                }
+        }
+        
+        // Parent process - close all pipe fds
+        for (i = 0; i < pipe_count; i++) {
+                close(pipes[i][0]);
+                close(pipes[i][1]);
+        }
+        
+        // Wait for all children and store their exit statuses
+        for (i = 0; i <= pipe_count; i++) {
+                int status;
+                waitpid(pids[i], &status, 0);
+                if (WIFEXITED(status)) {
+                        exit_status[i] = WEXITSTATUS(status);
+                } else {
+                        exit_status[i] = 1;
+                }
+        }
 }
 
 int main(void)
@@ -134,6 +139,20 @@ int main(void)
                         fprintf(stderr, "+ completed 'exit' [0]\n"); // not sure if hardcoding is best practice here
                         break;
                 }
+                
+                /* PWD IMPLEMENTATION */
+                if (!strcmp(cmd, "pwd")) {
+                        char cwd[PATH_MAX];
+                        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                            printf("%s\n", cwd);
+                            fprintf(stderr, "+ completed 'pwd' [0]\n");
+                        } else {
+                            perror("pwd");
+                            fprintf(stderr, "+ completed 'pwd' [1]\n");
+                        }
+                        continue;
+                }
+
 
                 // my work below
 
@@ -156,7 +175,33 @@ int main(void)
                 char *arg_vect[ARG_MAX + 1];
                 char *arg = strtok(cmd, " \t");
 
+                /* CHANGE DIRECTORY */
+                if (!strcmp(cmd, "cd")) {
+                        char *target = arg_vect[1];
+                    
+                        // If no argument is given, go to HOME
+                        if (target == NULL) {
+                            target = getenv("HOME");
+                            if (target == NULL) {
+                                fprintf(stderr, "cd: HOME not set\n");
+                                fprintf(stderr, "+ completed 'cd' [1]\n");
+                                continue;
+                            }
+                        }
+                    
+                        // Try to change directory
+                        if (chdir(target) == 0) {
+                            fprintf(stderr, "+ completed 'cd' [0]\n");
+                        } else {
+                            perror("cd");
+                            fprintf(stderr, "+ completed 'cd' [1]\n");
+                        }
+                    
+                        continue;
+                }
+
                 int s = 0;
+                int pipe_count = 0;
 
                 int i;
                 for (i = 0; i < ARG_MAX; i++) {
@@ -170,6 +215,7 @@ int main(void)
                         // }
                         if (strcmp(arg, "|") == 0) {
                                 s = 1;
+                                pipe_count++;
                         } else if (strcmp(arg, ">") == 0) {
                                 s = 2;
                         }
@@ -192,8 +238,18 @@ int main(void)
                         {
                         case 1:
                                 /* pipeline */
-                                piping(cmd_copy);
-                                continue;;
+                                {
+                                        int exit_status[4] = {0}; // Max 4 commands (3 pipes)
+                                        piping(cmd_copy, pipe_count, exit_status);
+                                        
+                                        // Only parent should print completion message
+                                        fprintf(stderr, "+ completed '%s'", cmd_copy);
+                                        for (int i = 0; i <= pipe_count; i++) {
+                                                fprintf(stderr, " [%d]", exit_status[i]);
+                                        }
+                                        fprintf(stderr, "\n");
+                                        exit(0);  // Exit child process
+                                }
                         
                         case 2:
                                 /* output redirection */
@@ -207,10 +263,9 @@ int main(void)
                         // parent
                         int status;
                         waitpid(pid, &status, 0);
-                        fprintf(stderr, "+ completed '%s' [%d]\n", cmd_copy, WEXITSTATUS(status));
-                        // warning!! this does not handle a segmentation fault such as if(!WIFEXITED(status);
-                        // sshell_ref doesn't handle it though, so kept as it
-                        // keeping this as a future reference
+                        if (s != 1) {  // Only print completion for non-piped commands
+                                fprintf(stderr, "+ completed '%s' [%d]\n", cmd_copy, WEXITSTATUS(status));
+                        }
                 } else {
                         perror("fork");
                         continue; // allow shell to continue upon fork error
