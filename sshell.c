@@ -188,20 +188,6 @@ int main(void)
                         fprintf(stderr, "+ completed 'exit' [0]\n"); // not sure if hardcoding is best practice here
                         break;
                 }
-                
-                /* PWD IMPLEMENTATION */
-                // if (!strcmp(cmd, "pwd")) {
-                //         char cwd[PATH_MAX];
-                //         if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                //             printf("%s\n", cwd);
-                //             fprintf(stderr, "+ completed 'pwd' [0]\n");
-                //         } else {
-                //             perror("pwd");
-                //             fprintf(stderr, "+ completed 'pwd' [1]\n");
-                //         }
-                //         continue;
-                // }
-
 
                 // my work below
 
@@ -257,11 +243,6 @@ int main(void)
 
                 /* PWD */
                 if (!strcmp(arg_vect[0], "pwd")) {
-                        // if (i > ARG_MAX) {
-                        //     fprintf(stderr, "Error: too many process arguments\n");
-                        //     continue;
-                        // }
-                    
                         char cwd[PATH_MAX];
                         if (getcwd(cwd, sizeof(cwd)) != NULL) {
                             printf("%s\n", cwd);
@@ -277,17 +258,7 @@ int main(void)
                 if (!strcmp(arg_vect[0], "cd")) {
                         char *target = arg_vect[1];
                         
-                        // If no argument is given, go to HOME
-                        if (target == NULL) {
-                                target = getenv("HOME");
-                                if (target == NULL) {
-                                fprintf(stderr, "cd: HOME not set\n"); // Do I need this?
-                                fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
-                                continue;
-                                }
-                        }
-                        
-                        // Try to change directory
+                        // Try to change directory (THIS IS CORRECT)
                         if (chdir(target) == 0) {
                                 fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
                         } else {
