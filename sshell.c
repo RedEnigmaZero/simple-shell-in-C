@@ -140,7 +140,7 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
         }
 }
 
-void redirection(char *cmdline)
+int redirection(char *cmdline)  // Change return type to int
 {
         char cmd_copy[CMDLINE_MAX];
         strncpy(cmd_copy, cmdline, CMDLINE_MAX);
@@ -149,20 +149,16 @@ void redirection(char *cmdline)
 
         // Find the redirection symbol
         char *redir_pos = NULL;
-        if (strchr(cmd_copy, '>') != NULL)
-        {
+        if (strchr(cmd_copy, '>') != NULL) {
                 redir_pos = strchr(cmd_copy, '>');
-        }
-        else if (strchr(cmd_copy, '<') != NULL)
-        {
+        } else if (strchr(cmd_copy, '<') != NULL) {
                 redir_pos = strchr(cmd_copy, '<');
                 s = 1;
         }
 
-        if (!redir_pos)
-        {
+        if (!redir_pos) {
                 fprintf(stderr, "Error: redirection symbol not found\n");
-                exit(1);
+                return 1;  // Error status
         }
 
         // Split the command at the redirection
@@ -173,15 +169,12 @@ void redirection(char *cmdline)
         while (*output_file == ' ' || *output_file == '\t')
                 output_file++;
 
-        if (*output_file == '\0' && s == 0)
-        {
-                fprintf(stderr, "Error: no output file\n");
-                exit(1);
-        }
-        else if (*output_file == '\0' && s == 1)
-        {
-                fprintf(stderr, "Error: no input file\n");
-                exit(1);
+        if (*output_file == '\0') {
+                if (s == 0)
+                        fprintf(stderr, "Error: no output file\n");
+                else
+                        fprintf(stderr, "Error: no input file\n");
+                return 1;
         }
 
         // Parse command and arguments
@@ -189,65 +182,39 @@ void redirection(char *cmdline)
         int i = 0;
         char *arg = strtok(cmd_copy, " \t");
 
-        while (arg != NULL)
-        {
-                if (i >= ARG_MAX)
-                {
+        while (arg != NULL) {
+                if (i >= ARG_MAX) {
                         fprintf(stderr, "Error: too many process arguments\n");
-                        exit(1);
+                        return 1;
                 }
                 arg_vect[i++] = arg;
                 arg = strtok(NULL, " \t");
         }
         arg_vect[i] = NULL;
 
-        int fd;
-        if (s == 0)
-        { // Output redirection (>)
-                fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        }
-        else
-        { // Input redirection (<)
-                fd = open(output_file, O_RDONLY);
+        // Open file with appropriate mode
+        int fd = (s == 0) ? 
+                open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644) :
+                open(output_file, O_RDONLY);
+
+        if (fd == -1) {
+                fprintf(stderr, "Error: cannot open %s file\n", 
+                        (s == 0) ? "output" : "input");
+                return 1;
         }
 
-        if (fd == -1 && s == 0)
-        {
-                fprintf(stderr, "Error: cannot open output file\n");
-                exit(1);
-        }
-        else if (fd == -1 && s == 1)
-        {
-                fprintf(stderr, "Error: cannot open input file\n");
-                exit(1);
-        }
-
-        switch (s)
-        {
-        case 0:
-                // Redirect stdout to file
-                if (dup2(fd, STDOUT_FILENO) == -1)
-                {
-                        perror("dup2");
-                        exit(1);
-                }
-                break;
-
-        case 1:
-                // Redirect stdin from file
-                if (dup2(fd, STDIN_FILENO) == -1)
-                {
-                        perror("dup2");
-                        exit(1);
-                }
-                break;
+        // Perform redirection
+        if (dup2(fd, (s == 0) ? STDOUT_FILENO : STDIN_FILENO) == -1) {
+                perror("dup2");
+                close(fd);
+                return 1;
         }
         close(fd);
 
         // Execute command
         execvp(arg_vect[0], arg_vect);
         fprintf(stderr, "Error: command not found\n");
-        exit(1);
+        return 1;
 }
 
 int main(void)
@@ -412,8 +379,13 @@ int main(void)
 
                         case 2:
                                 /* output redirection */
-                                redirection(cmd_copy);
-                                break; // Add this to prevent fallthrough
+                                {
+                                        int ret = redirection(cmd_copy);
+                                        if (ret == 1) {
+                                                exit(1);  // Exit with error status
+                                        }
+                                        exit(0);  // Exit with success status
+                                }
 
                         default:
                                 execvp(arg_vect[0], arg_vect);
@@ -426,8 +398,9 @@ int main(void)
                         // parent
                         int status;
                         waitpid(pid, &status, 0);
-                        if (s != 1)
-                        { // Only print completion for non-piped commands
+                        // Only print completion if not a pipe and command succeeded
+                        if (s != 1 && !(s == 2 && WEXITSTATUS(status) != 0))
+                        {
                                 fprintf(stderr, "+ completed '%s' [%d]\n", cmd_copy, WEXITSTATUS(status));
                         }
                 }
