@@ -108,9 +108,19 @@ void redirection(char *cmdline)
 {
         char cmd_copy[CMDLINE_MAX];
         strncpy(cmd_copy, cmdline, CMDLINE_MAX);
-        
+
+        int s = 0;
+
         // Find the redirection symbol
-        char *redir_pos = strchr(cmd_copy, '>');
+        char *redir_pos = NULL;
+        if (strchr(cmd_copy, '>') != NULL) {
+                redir_pos = strchr(cmd_copy, '>');
+        } else if (strchr(cmd_copy, '<') != NULL) {
+                redir_pos = strchr(cmd_copy, '<');
+                s = 1;
+
+        } 
+        
         if (!redir_pos) {
                 fprintf(stderr, "Error: redirection symbol not found\n");
                 exit(1);
@@ -144,17 +154,35 @@ void redirection(char *cmdline)
         }
         arg_vect[i] = NULL;
 
-        // Open output file
-        int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        int fd;
+        if (s == 0) {  // Output redirection (>)
+                fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        } else {  // Input redirection (<)
+                fd = open(output_file, O_RDONLY);
+        }
+
         if (fd == -1) {
                 perror("open");
                 exit(1);
         }
         
-        // Redirect stdout to file
-        if (dup2(fd, STDOUT_FILENO) == -1) {
-                perror("dup2");
-                exit(1);
+        switch (s)
+        {
+        case 0:
+                // Redirect stdout to file
+                if (dup2(fd, STDOUT_FILENO) == -1) {
+                        perror("dup2");
+                        exit(1);
+                }
+                break;
+        
+        case 1:
+                // Redirect stdin from file
+                if (dup2(fd, STDIN_FILENO) == -1) {
+                        perror("dup2");
+                        exit(1);
+                }
+                break;
         }
         close(fd);
         
@@ -242,7 +270,7 @@ int main(void)
                 if (strchr(cmd_copy, '|') != NULL) {
                         s = 1; 
                 }
-                if (strchr(cmd_copy, '>') != NULL) {
+                if (strchr(cmd_copy, '>') != NULL || strchr(cmd_copy, '<') != NULL) {
                         s = 2; 
                 }
 
