@@ -1,12 +1,9 @@
-CC = gcc
-CFLAGS = -Wall -Wextra -Werror
-TARGET = sshell
-SRC = sshell.c
+CFLAGS = -Wall -Wextra -Werror -g
 
-all: $(TARGET)
+all: sshell
 
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+sshell: sshell.c
+	gcc $(CFLAGS) -o sshell sshell.c
 
 clean:
-	rm -f $(TARGET) *.o
+	rm -f sshell

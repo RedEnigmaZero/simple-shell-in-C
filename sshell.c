@@ -5,6 +5,7 @@
 #include <fcntl.h>     // For O_WRONLY, O_CREAT, O_TRUNC
 #include <sys/types.h> // For pid_t
 #include <wait.h>  // For waitpid and WIFEXITED
+#include <signal.h> // For signal and SIGCHLD
 
 #define CMDLINE_MAX 512
 #define ARG_MAX 16
@@ -295,6 +296,12 @@ int main(void)
                         {
                                 pipe_count++;
                         }
+                        if (strcmp(arg, "&") == 0)
+                        {
+                                arg_vect[i++] = "\0";
+                                arg = strtok(NULL, " \t");
+                                continue;
+                        }
 
                         arg_vect[i++] = arg;
                         arg = strtok(NULL, " \t");
@@ -308,6 +315,12 @@ int main(void)
                 {
                         s = 2;
                 }
+                if (strchr(cmd_copy, '&') != NULL)
+                {
+                        s = 3;
+                }
+
+                //fprintf(stderr, "s = '%d'", s);
 
                 arg_vect[i] = NULL;
 
@@ -385,6 +398,17 @@ int main(void)
                                                 exit(1);  // Exit with error status
                                         }
                                         exit(0);  // Exit with success status
+                                }
+
+                        case 3:
+                                /* background process */
+                                {
+                                        // Ignore SIGCHLD signal to prevent zombie processes
+                                        signal(SIGCHLD, SIG_IGN);
+                                        // Execute command in background
+                                        execvp(arg_vect[0], arg_vect);
+                                        fprintf(stderr, "Error: command not found\n");
+                                        exit(1);
                                 }
 
                         default:
