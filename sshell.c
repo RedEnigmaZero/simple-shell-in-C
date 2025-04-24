@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>     // For O_WRONLY, O_CREAT, O_TRUNC
 #include <sys/types.h> // For pid_t
-#include <sys/wait.h>  // For waitpid and WIFEXITED
+#include <wait.h>  // For waitpid and WIFEXITED
 
 #define CMDLINE_MAX 512
 #define ARG_MAX 16
@@ -16,89 +16,125 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
         int pipes[pipe_count][2];
         pid_t pids[pipe_count + 1];
         char *commands[pipe_count + 1][ARG_MAX + 1];
-        int i, j;
-        
+        int i;
+
         // Create local copy of command to parse
         char cmd_copy[CMDLINE_MAX];
         strncpy(cmd_copy, cmdline, CMDLINE_MAX);
-        
-        // Parse all commands
-        char *arg = strtok(cmd_copy, " \t");
-        i = 0;  // command index
-        j = 0;  // argument index
-        
-        while (arg != NULL) {
-                if (strcmp(arg, "|") == 0) {
-                        commands[i][j] = NULL;  // Null terminate current command
-                        i++;  // Move to next command
-                        j = 0;  // Reset argument index
-                } else {
-                        if (j >= ARG_MAX) {
+
+        // Parse commands using pipe symbol as delimiter
+        char *cmd_part = cmd_copy;
+        char *pipe_pos;
+        i = 0;
+
+        while (i <= pipe_count)
+        {
+                // Find next pipe symbol
+                pipe_pos = strchr(cmd_part, '|');
+                if (pipe_pos)
+                {
+                        *pipe_pos = '\0'; // Split at pipe symbol
+                }
+
+                // Parse arguments for current command
+                char *arg;
+                int j = 0;
+                arg = strtok(cmd_part, " \t");
+
+                while (arg != NULL)
+                {
+                        if (j >= ARG_MAX)
+                        {
                                 fprintf(stderr, "Error: too many process arguments\n");
                                 return;
                         }
                         commands[i][j++] = arg;
+                        arg = strtok(NULL, " \t");
                 }
-                arg = strtok(NULL, " \t");
+                commands[i][j] = NULL; // Null terminate command arguments
+
+                // Move to next command after pipe
+                if (pipe_pos)
+                {
+                        cmd_part = pipe_pos + 1;
+                        // Skip leading whitespace
+                        while (*cmd_part == ' ' || *cmd_part == '\t')
+                                cmd_part++;
+                }
+                i++;
         }
-        commands[i][j] = NULL;  // Null terminate last command
-        
+
         // Create all pipes
-        for (i = 0; i < pipe_count; i++) {
-                if (pipe(pipes[i]) == -1) {
+        for (i = 0; i < pipe_count; i++)
+        {
+                if (pipe(pipes[i]) == -1)
+                {
                         perror("pipe");
                         return;
                 }
         }
-        
+
         // Create all processes
-        for (i = 0; i <= pipe_count; i++) {
+        for (i = 0; i <= pipe_count; i++)
+        {
                 pids[i] = fork();
-                if (pids[i] == -1) {
+                if (pids[i] == -1)
+                {
                         perror("fork");
                         return;
                 }
-                
-                if (pids[i] == 0) {
+
+                if (pids[i] == 0)
+                {
                         // Child process
-                        if (i > 0) {
-                                if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
+                        if (i > 0)
+                        {
+                                if (dup2(pipes[i - 1][0], STDIN_FILENO) == -1)
+                                {
                                         perror("dup2");
                                         exit(1);
                                 }
                         }
-                        if (i < pipe_count) {
-                                if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
+                        if (i < pipe_count)
+                        {
+                                if (dup2(pipes[i][1], STDOUT_FILENO) == -1)
+                                {
                                         perror("dup2");
                                         exit(1);
                                 }
                         }
-                        
+
                         // Close all pipe fds
-                        for (j = 0; j < pipe_count; j++) {
+                        for (int j = 0; j < pipe_count; j++)
+                        {
                                 close(pipes[j][0]);
                                 close(pipes[j][1]);
                         }
-                        
+
                         execvp(commands[i][0], commands[i]);
                         fprintf(stderr, "Error: command not found\n");
                         exit(1);
                 }
         }
-        
+
         // Parent process - close all pipe fds
-        for (i = 0; i < pipe_count; i++) {
+        for (i = 0; i < pipe_count; i++)
+        {
                 close(pipes[i][0]);
                 close(pipes[i][1]);
         }
-        
+
         // Wait for all children and store their exit statuses
-        for (i = 0; i <= pipe_count; i++) {
+        for (i = 0; i <= pipe_count; i++)
+        {
                 int status;
                 waitpid(pids[i], &status, 0);
-                if (WIFEXITED(status)) {
+                if (WIFEXITED(status))
+                {
                         exit_status[i] = WEXITSTATUS(status);
-                } else {
+                }
+                else
+                {
                         exit_status[i] = 1;
                 }
         }
@@ -113,43 +149,50 @@ void redirection(char *cmdline)
 
         // Find the redirection symbol
         char *redir_pos = NULL;
-        if (strchr(cmd_copy, '>') != NULL) {
+        if (strchr(cmd_copy, '>') != NULL)
+        {
                 redir_pos = strchr(cmd_copy, '>');
-        } else if (strchr(cmd_copy, '<') != NULL) {
+        }
+        else if (strchr(cmd_copy, '<') != NULL)
+        {
                 redir_pos = strchr(cmd_copy, '<');
                 s = 1;
+        }
 
-        } 
-        
-        if (!redir_pos) {
+        if (!redir_pos)
+        {
                 fprintf(stderr, "Error: redirection symbol not found\n");
                 exit(1);
         }
-        
+
         // Split the command at the redirection
         *redir_pos = '\0';
         char *output_file = redir_pos + 1;
-        
+
         // Skip leading whitespace in output filename
         while (*output_file == ' ' || *output_file == '\t')
                 output_file++;
-                
-        if (*output_file == '\0' && s == 0) {
+
+        if (*output_file == '\0' && s == 0)
+        {
                 fprintf(stderr, "Error: no output file\n");
                 exit(1);
-        } else if (*output_file == '\0' && s == 1) {
+        }
+        else if (*output_file == '\0' && s == 1)
+        {
                 fprintf(stderr, "Error: no input file\n");
                 exit(1);
         }
-        
 
         // Parse command and arguments
         char *arg_vect[ARG_MAX + 1];
         int i = 0;
         char *arg = strtok(cmd_copy, " \t");
-        
-        while (arg != NULL) {
-                if (i >= ARG_MAX) {
+
+        while (arg != NULL)
+        {
+                if (i >= ARG_MAX)
+                {
                         fprintf(stderr, "Error: too many process arguments\n");
                         exit(1);
                 }
@@ -159,41 +202,48 @@ void redirection(char *cmdline)
         arg_vect[i] = NULL;
 
         int fd;
-        if (s == 0) {  // Output redirection (>)
+        if (s == 0)
+        { // Output redirection (>)
                 fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        } else {  // Input redirection (<)
+        }
+        else
+        { // Input redirection (<)
                 fd = open(output_file, O_RDONLY);
         }
 
-        if (fd == -1 && s == 0) {
+        if (fd == -1 && s == 0)
+        {
                 fprintf(stderr, "Error: cannot open output file\n");
                 exit(1);
-        } else if (fd == -1 && s == 1) {
+        }
+        else if (fd == -1 && s == 1)
+        {
                 fprintf(stderr, "Error: cannot open input file\n");
                 exit(1);
         }
-        
-        
+
         switch (s)
         {
         case 0:
                 // Redirect stdout to file
-                if (dup2(fd, STDOUT_FILENO) == -1) {
+                if (dup2(fd, STDOUT_FILENO) == -1)
+                {
                         perror("dup2");
                         exit(1);
                 }
                 break;
-        
+
         case 1:
                 // Redirect stdin from file
-                if (dup2(fd, STDIN_FILENO) == -1) {
+                if (dup2(fd, STDIN_FILENO) == -1)
+                {
                         perror("dup2");
                         exit(1);
                 }
                 break;
         }
         close(fd);
-        
+
         // Execute command
         execvp(arg_vect[0], arg_vect);
         fprintf(stderr, "Error: command not found\n");
@@ -205,7 +255,8 @@ int main(void)
         char cmd[CMDLINE_MAX];
         char *eof;
 
-        while (1) {
+        while (1)
+        {
                 char *nl;
 
                 /* Print prompt */
@@ -219,7 +270,8 @@ int main(void)
                         strncpy(cmd, "exit\n", CMDLINE_MAX);
 
                 /* Print command line if stdin is not provided by terminal */
-                if (!isatty(STDIN_FILENO)) {
+                if (!isatty(STDIN_FILENO))
+                {
                         printf("%s", cmd);
                         fflush(stdout);
                 }
@@ -230,7 +282,8 @@ int main(void)
                         *nl = '\0';
 
                 /* Builtin command */
-                if (!strcmp(cmd, "exit")) { // this does not allow for whitespace like the sshell_ref does, but will let slide (THE NEW SSHELL_REF ACCOUNTS FOR THIS!!!)
+                if (!strcmp(cmd, "exit"))
+                { // this does not allow for whitespace like the sshell_ref does, but will let slide (THE NEW SSHELL_REF ACCOUNTS FOR THIS!!!)
                         fprintf(stderr, "Bye...\n");
                         fprintf(stderr, "+ completed 'exit' [0]\n");
                         break;
@@ -238,8 +291,10 @@ int main(void)
 
                 // skip empty line in the case the user presses enter with no text or only whitespace
                 int is_blank = 1;
-                for (int i = 0; cmd[i] != '\0'; i++) {
-                        if(cmd[i] != ' ' && cmd[i] != '\t') {
+                for (int i = 0; cmd[i] != '\0'; i++)
+                {
+                        if (cmd[i] != ' ' && cmd[i] != '\t')
+                        {
                                 is_blank = 0;
                                 break;
                         }
@@ -260,67 +315,82 @@ int main(void)
 
                 int i = 0;
                 int too_many_args = 0;
-                
-                while (arg != NULL) {
-                    if (i >= ARG_MAX) {
-                        too_many_args = 1;
-                        break; // Stop parsing shen we've hit the limit
-                    }
-                
-                    if (strcmp(arg, "|") == 0) { 
-                        pipe_count++;
-                    } 
-                
-                    arg_vect[i++] = arg;
-                    arg = strtok(NULL, " \t");
+
+                while (arg != NULL)
+                {
+                        if (i >= ARG_MAX)
+                        {
+                                too_many_args = 1;
+                                break; // Stop parsing shen we've hit the limit
+                        }
+
+                        if (strcmp(arg, "|") == 0)
+                        {
+                                pipe_count++;
+                        }
+
+                        arg_vect[i++] = arg;
+                        arg = strtok(NULL, " \t");
                 }
 
-                if (strchr(cmd_copy, '|') != NULL) {
-                        s = 1; 
+                if (strchr(cmd_copy, '|') != NULL)
+                {
+                        s = 1;
                 }
-                if (strchr(cmd_copy, '>') != NULL || strchr(cmd_copy, '<') != NULL) {
-                        s = 2; 
+                if (strchr(cmd_copy, '>') != NULL || strchr(cmd_copy, '<') != NULL)
+                {
+                        s = 2;
                 }
 
                 arg_vect[i] = NULL;
-                
-                if (too_many_args) {
-                    fprintf(stderr, "Error: too many process arguments\n");
-                    continue;
+
+                if (too_many_args)
+                {
+                        fprintf(stderr, "Error: too many process arguments\n");
+                        continue;
                 }
 
                 arg_vect[i] = NULL; // null terminate
 
                 /* PWD */
-                if (!strcmp(arg_vect[0], "pwd")) {
+                if (!strcmp(arg_vect[0], "pwd"))
+                {
                         char cwd[PATH_MAX];
-                        if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                            printf("%s\n", cwd);
-                            fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
-                        } else {
-                            perror("pwd");
-                            fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
+                        if (getcwd(cwd, sizeof(cwd)) != NULL)
+                        {
+                                printf("%s\n", cwd);
+                                fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
+                        }
+                        else
+                        {
+                                perror("pwd");
+                                fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
                         }
                         continue;
                 }
 
                 /* CHANGE DIRECTORY */
-                if (!strcmp(arg_vect[0], "cd")) {
+                if (!strcmp(arg_vect[0], "cd"))
+                {
                         char *target = arg_vect[1];
-                        
+
                         // Try to change directory
-                        if (chdir(target) == 0) {
+                        if (chdir(target) == 0)
+                        {
                                 fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
-                        } else {
+                        }
+                        else
+                        {
                                 fprintf(stderr, "Error: cannot cd into directory\n");
                                 fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
                         }
-                        
+
                         continue;
                 }
 
                 pid_t pid = fork();
-                if (pid == 0) {
+                if (pid == 0)
+                {
                         // child
                         switch (s)
                         {
@@ -329,34 +399,40 @@ int main(void)
                                 {
                                         int exit_status[4] = {0}; // Max 4 commands (3 pipes)
                                         piping(cmd_copy, pipe_count, exit_status);
-                                        
+
                                         // Only parent should print completion message
                                         fprintf(stderr, "+ completed '%s'", cmd_copy);
-                                        for (int i = 0; i <= pipe_count; i++) {
+                                        for (int i = 0; i <= pipe_count; i++)
+                                        {
                                                 fprintf(stderr, " [%d]", exit_status[i]);
                                         }
                                         fprintf(stderr, "\n");
-                                        exit(0);  // Exit child process
+                                        exit(0); // Exit child process
                                 }
-                        
+
                         case 2:
                                 /* output redirection */
                                 redirection(cmd_copy);
-                                break;  // Add this to prevent fallthrough
+                                break; // Add this to prevent fallthrough
 
                         default:
                                 execvp(arg_vect[0], arg_vect);
                                 fprintf(stderr, "Error: command not found\n");
                                 exit(1);
                         }
-                } else if (pid > 0) {
+                }
+                else if (pid > 0)
+                {
                         // parent
                         int status;
                         waitpid(pid, &status, 0);
-                        if (s != 1) {  // Only print completion for non-piped commands
+                        if (s != 1)
+                        { // Only print completion for non-piped commands
                                 fprintf(stderr, "+ completed '%s' [%d]\n", cmd_copy, WEXITSTATUS(status));
                         }
-                } else {
+                }
+                else
+                {
                         perror("fork");
                         continue; // allow shell to continue upon fork error
                 }
