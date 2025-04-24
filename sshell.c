@@ -106,17 +106,35 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
 
 void redirection(char *cmdline)
 {
-        // Create local copy of command to parse
         char cmd_copy[CMDLINE_MAX];
         strncpy(cmd_copy, cmdline, CMDLINE_MAX);
         
-        // Parse command and output file
+        // Find the redirection symbol
+        char *redir_pos = strchr(cmd_copy, '>');
+        if (!redir_pos) {
+                fprintf(stderr, "Error: redirection symbol not found\n");
+                exit(1);
+        }
+        
+        // Split the command at the redirection
+        *redir_pos = '\0';
+        char *output_file = redir_pos + 1;
+        
+        // Skip leading whitespace in output filename
+        while (*output_file == ' ' || *output_file == '\t')
+                output_file++;
+                
+        if (*output_file == '\0') {
+                fprintf(stderr, "Error: no output file\n");
+                exit(1);
+        }
+
+        // Parse command and arguments
         char *arg_vect[ARG_MAX + 1];
         int i = 0;
-        
-        // Get first token
         char *arg = strtok(cmd_copy, " \t");
-        while (arg != NULL && strcmp(arg, ">") != 0) {
+        
+        while (arg != NULL) {
                 if (i >= ARG_MAX) {
                         fprintf(stderr, "Error: too many process arguments\n");
                         exit(1);
@@ -124,17 +142,10 @@ void redirection(char *cmdline)
                 arg_vect[i++] = arg;
                 arg = strtok(NULL, " \t");
         }
-        arg_vect[i] = NULL;  // Null terminate command arguments
-        
-        // Get output file
-        arg = strtok(NULL, " \t");
-        if (arg == NULL) {
-                fprintf(stderr, "Error: no output file\n");
-                exit(1);
-        }
-        
+        arg_vect[i] = NULL;
+
         // Open output file
-        int fd = open(arg, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
                 perror("open");
                 exit(1);
@@ -220,16 +231,21 @@ int main(void)
                         break; // Stop parsing shen we've hit the limit
                     }
                 
-                    if (strcmp(arg, "|") == 0) {
-                        s = 1;
+                    if (strcmp(arg, "|") == 0) { 
                         pipe_count++;
-                    } else if (strcmp(arg, ">") == 0) {
-                        s = 2;
-                    }
+                    } 
                 
                     arg_vect[i++] = arg;
                     arg = strtok(NULL, " \t");
                 }
+
+                if (strchr(cmd_copy, '|') != NULL) {
+                        s = 1; 
+                }
+                if (strchr(cmd_copy, '>') != NULL) {
+                        s = 2; 
+                }
+
                 arg_vect[i] = NULL;
                 
                 if (too_many_args) {
