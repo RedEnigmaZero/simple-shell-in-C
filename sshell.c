@@ -190,17 +190,17 @@ int main(void)
                 }
                 
                 /* PWD IMPLEMENTATION */
-                if (!strcmp(cmd, "pwd")) {
-                        char cwd[PATH_MAX];
-                        if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                            printf("%s\n", cwd);
-                            fprintf(stderr, "+ completed 'pwd' [0]\n");
-                        } else {
-                            perror("pwd");
-                            fprintf(stderr, "+ completed 'pwd' [1]\n");
-                        }
-                        continue;
-                }
+                // if (!strcmp(cmd, "pwd")) {
+                //         char cwd[PATH_MAX];
+                //         if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                //             printf("%s\n", cwd);
+                //             fprintf(stderr, "+ completed 'pwd' [0]\n");
+                //         } else {
+                //             perror("pwd");
+                //             fprintf(stderr, "+ completed 'pwd' [1]\n");
+                //         }
+                //         continue;
+                // }
 
 
                 // my work below
@@ -227,33 +227,51 @@ int main(void)
                 int s = 0;
                 int pipe_count = 0;
 
-                int i;
-                for (i = 0; i < ARG_MAX; i++) {
-                        if (!arg)
-                                break;
-
-                        // Not sure if I should include this, it's in the project specification but is not handled by sshell_ref
-                        // if (strlen(arg) > TKN_MAX) {
-                        //     fprintf(stderr, "Error: token exceeds max length of %d characters\n", TKN_MAX);
-                        //     continue;
-                        // }
-                        if (strcmp(arg, "|") == 0) {
-                                s = 1;
-                                pipe_count++;
-                        } else if (strcmp(arg, ">") == 0) {
-                                s = 2;
-                        }
-
-                        arg_vect[i] = arg;
-                        arg = strtok(NULL, " \t");
+                int i = 0;
+                int too_many_args = 0;
+                
+                while (arg != NULL) {
+                    if (i >= ARG_MAX) {
+                        too_many_args = 1;
+                        break; // Stop parsing; we've hit the limit
+                    }
+                
+                    if (strcmp(arg, "|") == 0) {
+                        s = 1;
+                        pipe_count++;
+                    } else if (strcmp(arg, ">") == 0) {
+                        s = 2;
+                    }
+                
+                    arg_vect[i++] = arg;
+                    arg = strtok(NULL, " \t");
                 }
-
-                if (arg != NULL && i == ARG_MAX) {
-                        fprintf(stderr, "Error: too many process arguments\n");
-                        continue;
+                arg_vect[i] = NULL;
+                
+                if (too_many_args) {
+                    fprintf(stderr, "Error: too many process arguments\n");
+                    continue;
                 }
 
                 arg_vect[i] = NULL; // null terminate
+
+                /* PWD */
+                if (!strcmp(arg_vect[0], "pwd")) {
+                        // if (i > ARG_MAX) {
+                        //     fprintf(stderr, "Error: too many process arguments\n");
+                        //     continue;
+                        // }
+                    
+                        char cwd[PATH_MAX];
+                        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                            printf("%s\n", cwd);
+                            fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
+                        } else {
+                            perror("pwd");
+                            fprintf(stderr, "+ completed '%s' [1]\n", cmd_copy);
+                        }
+                        continue;
+                }
 
                 /* CHANGE DIRECTORY */
                 if (!strcmp(arg_vect[0], "cd")) {
