@@ -134,10 +134,14 @@ void redirection(char *cmdline)
         while (*output_file == ' ' || *output_file == '\t')
                 output_file++;
                 
-        if (*output_file == '\0') {
+        if (*output_file == '\0' && s == 0) {
                 fprintf(stderr, "Error: no output file\n");
                 exit(1);
+        } else if (*output_file == '\0' && s == 1) {
+                fprintf(stderr, "Error: no input file\n");
+                exit(1);
         }
+        
 
         // Parse command and arguments
         char *arg_vect[ARG_MAX + 1];
@@ -161,10 +165,14 @@ void redirection(char *cmdline)
                 fd = open(output_file, O_RDONLY);
         }
 
-        if (fd == -1) {
-                perror("open");
+        if (fd == -1 && s == 0) {
+                fprintf(stderr, "Error: cannot open output file\n");
+                exit(1);
+        } else if (fd == -1 && s == 1) {
+                fprintf(stderr, "Error: cannot open input file\n");
                 exit(1);
         }
+        
         
         switch (s)
         {
