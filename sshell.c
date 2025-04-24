@@ -284,23 +284,21 @@ int main(void)
                 int i = 0;
                 int too_many_args = 0;
 
+                // Replace the single pipe check with a loop that counts all pipes
+                char *pipe_check = cmd_copy;
+                pipe_count = 0;
+                while ((pipe_check = strchr(pipe_check, '|')) != NULL) {
+                        pipe_count++;
+                        pipe_check++; // Move past the found pipe symbol
+                }
+
+                // Then modify the argument parsing to just collect arguments
                 while (arg != NULL)
                 {
                         if (i >= ARG_MAX)
                         {
                                 too_many_args = 1;
                                 break; // Stop parsing shen we've hit the limit
-                        }
-
-                        if (strcmp(arg, "|") == 0)
-                        {
-                                pipe_count++;
-                        }
-                        if (strcmp(arg, "&") == 0)
-                        {
-                                arg_vect[i++] = "\0";
-                                arg = strtok(NULL, " \t");
-                                continue;
                         }
 
                         arg_vect[i++] = arg;
@@ -384,7 +382,14 @@ int main(void)
                                         fprintf(stderr, "+ completed '%s'", cmd_copy);
                                         for (int i = 0; i <= pipe_count; i++)
                                         {
-                                                fprintf(stderr, " [%d]", exit_status[i]);
+                                                if (i == 0)
+                                                {
+                                                        fprintf(stderr, " [%d]", exit_status[i]);
+                                                }
+                                                else
+                                                {
+                                                        fprintf(stderr, "[%d]", exit_status[i]);
+                                                }
                                         }
                                         fprintf(stderr, "\n");
                                         exit(0); // Exit child process
