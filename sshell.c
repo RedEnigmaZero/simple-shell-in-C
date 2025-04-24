@@ -183,13 +183,11 @@ int main(void)
                         *nl = '\0';
 
                 /* Builtin command */
-                if (!strcmp(cmd, "exit")) { // this does not allow for whitespace like the sshell_ref does, but will let slide
+                if (!strcmp(cmd, "exit")) { // this does not allow for whitespace like the sshell_ref does, but will let slide (THE NEW SSHELL_REF ACCOUNTS FOR THIS!!!)
                         fprintf(stderr, "Bye...\n");
-                        fprintf(stderr, "+ completed 'exit' [0]\n"); // not sure if hardcoding is best practice here
+                        fprintf(stderr, "+ completed 'exit' [0]\n");
                         break;
                 }
-
-                // my work below
 
                 // skip empty line in the case the user presses enter with no text or only whitespace
                 int is_blank = 1;
@@ -219,7 +217,7 @@ int main(void)
                 while (arg != NULL) {
                     if (i >= ARG_MAX) {
                         too_many_args = 1;
-                        break; // Stop parsing; we've hit the limit
+                        break; // Stop parsing shen we've hit the limit
                     }
                 
                     if (strcmp(arg, "|") == 0) {
@@ -258,7 +256,7 @@ int main(void)
                 if (!strcmp(arg_vect[0], "cd")) {
                         char *target = arg_vect[1];
                         
-                        // Try to change directory (THIS IS CORRECT)
+                        // Try to change directory
                         if (chdir(target) == 0) {
                                 fprintf(stderr, "+ completed '%s' [0]\n", cmd_copy);
                         } else {
