@@ -316,10 +316,17 @@ int main(void)
                         }
 
                         // Check for mislocated redirection
-                        if (strchr(cmd_copy, '|') != NULL && strchr(cmd_copy, '>') != NULL) {
-                                fprintf(stderr, "Error: mislocated output redirection\n");
-                                invalid_combination = 1;
-                                break;
+                        if (strchr(cmd_copy, '|') != NULL) {
+                                if (strchr(cmd_copy, '>') != NULL) {
+                                    fprintf(stderr, "Error: no output file\n");  // Change this line
+                                    invalid_combination = 1;
+                                    break;
+                                }
+                                if (strchr(cmd_copy, '<') != NULL) {
+                                    fprintf(stderr, "Error: no input file\n");  // And this one
+                                    invalid_combination = 1;
+                                    break;
+                                }
                         }
 
                         arg_vect[i++] = arg;
