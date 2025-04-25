@@ -112,11 +112,11 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
                                 close(pipes[j][1]);
                         }
 
-                        if (commands[i][0] == NULL && commands[i+1][0] != NULL)
+                        if (commands[i][0] == NULL && i + 1 <= pipe_count && commands[i+1][0] != NULL)
                         {
-                                fprintf(stderr, "Error: missing command\n");
-                                exit(1);
-                        } 
+                            fprintf(stderr, "Error: missing command\n");
+                            exit(1);
+                        }
                       
                         
 
@@ -306,6 +306,7 @@ int main(void)
                 }
 
                 // Then modify the argument parsing to just collect arguments
+                int invalid_combination = 0;
                 while (arg != NULL)
                 {
                         if (i >= ARG_MAX)
@@ -317,11 +318,17 @@ int main(void)
                         // Check for mislocated redirection
                         if (strchr(cmd_copy, '|') != NULL && strchr(cmd_copy, '>') != NULL) {
                                 fprintf(stderr, "Error: mislocated output redirection\n");
+                                invalid_combination = 1;
                                 break;
                         }
 
                         arg_vect[i++] = arg;
                         arg = strtok(NULL, " \t");
+                }
+
+                // Skipping execution if invalid combination (redirecting before piping)
+                if (invalid_combination) {
+                        continue;
                 }
 
                 if (strchr(cmd_copy, '|') != NULL)
