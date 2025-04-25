@@ -112,6 +112,18 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
                                 close(pipes[j][1]);
                         }
 
+                        if (commands[i][0] == NULL && commands[i+1][0] != NULL)
+                        {
+                                fprintf(stderr, "Error: missing command\n");
+                                exit(1);
+                        } else if (commands[i][0] != NULL && commands[i+1][0] == NULL)
+                        {
+                                fprintf(stderr, "Error: missing command\n");
+                                exit(1);
+                        } 
+                      
+                        
+
                         execvp(commands[i][0], commands[i]);
                         fprintf(stderr, "Error: command not found\n");
                         exit(1);
@@ -192,6 +204,11 @@ int redirection(char *cmdline)  // Change return type to int
                 arg = strtok(NULL, " \t");
         }
         arg_vect[i] = NULL;
+
+        if (arg_vect[0] == NULL) {
+                fprintf(stderr, "Error: missing command\n");
+                return 1;
+        }
 
         // Open file with appropriate mode
         int fd = (s == 0) ? 
@@ -299,6 +316,12 @@ int main(void)
                         {
                                 too_many_args = 1;
                                 break; // Stop parsing shen we've hit the limit
+                        }
+
+                        // Check for mislocated redirection
+                        if (strchr(cmd_copy, '|') != NULL && strchr(cmd_copy, '>') != NULL) {
+                                fprintf(stderr, "Error: mislocated output redirection\n");
+                                break;
                         }
 
                         arg_vect[i++] = arg;
