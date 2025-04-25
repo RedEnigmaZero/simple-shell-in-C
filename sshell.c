@@ -116,10 +116,6 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
                         {
                                 fprintf(stderr, "Error: missing command\n");
                                 exit(1);
-                        } else if (commands[i][0] != NULL && commands[i+1][0] == NULL)
-                        {
-                                fprintf(stderr, "Error: missing command\n");
-                                exit(1);
                         } 
                       
                         
