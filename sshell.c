@@ -228,7 +228,7 @@ int main(void)
                 char *nl;
 
                 /* Print prompt */
-                printf("sshell$ ");
+                printf("sshell@ucd$ ");
                 fflush(stdout);
 
                 /* Get command line */
@@ -410,6 +410,20 @@ int main(void)
                                 {
                                         // Ignore SIGCHLD signal to prevent zombie processes
                                         signal(SIGCHLD, SIG_IGN);
+
+                                        // Clean '&' from argument vector
+                                        int bg_argc = 0;
+                                        while (arg_vect[bg_argc] != NULL) {
+                                                char *amp = strchr(arg_vect[bg_argc], '&');
+                                                if (amp) {
+                                                        *amp = '\0';
+                                                        if (strlen(arg_vect[bg_argc]) == 0) {
+                                                        arg_vect[bg_argc] = NULL;
+                                                        }
+                                                }
+                                                bg_argc++;
+                                        }
+
                                         // Execute command in background
                                         execvp(arg_vect[0], arg_vect);
                                         fprintf(stderr, "Error: command not found\n");
