@@ -288,8 +288,13 @@ int main(void)
                 /* Builtin command */
                 if (!strcmp(cmd, "exit"))
                 { // this does not allow for whitespace like the sshell_ref does, but will let slide (THE NEW SSHELL_REF ACCOUNTS FOR THIS!!!)
+                        if (bg_pid != -1)
+                        {
+                                fprintf(stderr, "Error: active job still running\n");
+                                fprintf(stderr, "+ completed 'exit' [1]\n");
+                                continue;
+                        }
                         fprintf(stderr, "Bye...\n");
-                        fprintf(stderr, "+ completed 'exit' [0]\n");
                         break;
                 }
 
@@ -485,7 +490,6 @@ int main(void)
                                 // Store background process info
                                 bg_pid = pid;
                                 strncpy(bg_cmd, cmd_copy, CMDLINE_MAX);
-                                
                         }
                         else 
                         {
