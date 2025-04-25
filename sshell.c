@@ -292,7 +292,6 @@ int main(void)
                         {
                                 fprintf(stderr, "Error: active job still running\n");
                                 fprintf(stderr, "+ completed 'exit' [1]\n");
-                                fprintf(stderr, "Bye...\n");
                                 continue;
                         } else
                         {
