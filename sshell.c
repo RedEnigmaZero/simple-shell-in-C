@@ -179,7 +179,7 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
     }
 }
 
-int redirection(char *cmdline)  // Change return type to int
+int redirection(char *cmdline)  
 {
     char cmd_copy[CMDLINE_MAX];
     strncpy(cmd_copy, cmdline, CMDLINE_MAX);
