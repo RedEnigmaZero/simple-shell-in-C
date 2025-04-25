@@ -160,16 +160,16 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
                 }
         }
 
-        // if (!has_error) {
-        //         fprintf(stderr, "+ completed '%s'", cmdline);
-        //         for (i = 0; i <= pipe_count; i++) {
-        //                 if (i == 0)
-        //                         fprintf(stderr, " [%d]", exit_status[i]);
-        //                 else
-        //                         fprintf(stderr, "[%d]", exit_status[i]);
-        //         }
-        //         fprintf(stderr, "\n");
-        // }
+        if (!has_error) {
+                fprintf(stderr, "+ completed '%s'", cmdline);
+                for (i = 0; i <= pipe_count; i++) {
+                        if (i == 0)
+                                fprintf(stderr, " [%d]", exit_status[i]);
+                        else
+                                fprintf(stderr, "[%d]", exit_status[i]);
+                }
+                fprintf(stderr, "\n");
+        }
 }
 
 int redirection(char *cmdline)  // Change return type to int
