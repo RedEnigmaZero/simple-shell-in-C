@@ -12,6 +12,9 @@
 // #define TKN_MAX 32 // not sure if needed but is in project specification
 #define PATH_MAX 4096
 
+pid_t bg_pid = -1;
+char bg_cmd[CMDLINE_MAX];
+
 void piping(char *cmdline, int pipe_count, int *exit_status)
 {
         int pipes[pipe_count][2];
@@ -477,13 +480,36 @@ int main(void)
                 else if (pid > 0)
                 {
                         // parent
-                        int status;
-                        waitpid(pid, &status, 0);
-                        // Only print completion if not a pipe and command succeeded
-                        if (s != 1 && !(s == 2 && WEXITSTATUS(status) != 0))
+                        if (s == 3)
                         {
-                                fprintf(stderr, "+ completed '%s' [%d]\n", cmd_copy, WEXITSTATUS(status));
+                                // Store background process info
+                                bg_pid = pid;
+                                strncpy(bg_cmd, cmd_copy, CMDLINE_MAX);
+                                
                         }
+                        else 
+                        {
+                                int status;
+                                
+                                // Check if background process completed
+                                if (bg_pid != -1) {
+                                        int bg_status;
+                                        if (waitpid(bg_pid, &bg_status, WNOHANG) > 0) {
+                                                fprintf(stderr, "+ completed '%s' [%d]\n", 
+                                                        bg_cmd, WEXITSTATUS(bg_status));
+                                                bg_pid = -1;
+                                        }
+                                }
+                                
+                                // Wait for foreground process
+                                waitpid(pid, &status, 0);
+                                if (s != 1 && !(s == 2 && WEXITSTATUS(status) != 0))
+                                {
+                                        fprintf(stderr, "+ completed '%s' [%d]\n", 
+                                                cmd_copy, WEXITSTATUS(status));
+                                }
+                        }
+                        
                 }
                 else
                 {
