@@ -397,20 +397,29 @@ int main(void)
                                         int exit_status[4] = {0}; // Max 4 commands (3 pipes)
                                         piping(cmd_copy, pipe_count, exit_status);
 
-                                        // Only parent should print completion message
-                                        fprintf(stderr, "+ completed '%s'", cmd_copy);
-                                        for (int i = 0; i <= pipe_count; i++)
+                                        int sum;
+                                        for (int i = 0; i < 4; i++)
                                         {
-                                                if (i == 0)
-                                                {
-                                                        fprintf(stderr, " [%d]", exit_status[i]);
-                                                }
-                                                else
-                                                {
-                                                        fprintf(stderr, "[%d]", exit_status[i]);
-                                                }
+                                                sum += exit_status[i];
                                         }
-                                        fprintf(stderr, "\n");
+
+                                        if (sum < 0)
+                                        {
+                                                // Only parent should print completion message
+                                                fprintf(stderr, "+ completed '%s'", cmd_copy);
+                                                for (int i = 0; i <= pipe_count; i++)
+                                                {
+                                                        if (i == 0)
+                                                        {
+                                                                fprintf(stderr, " [%d]", exit_status[i]);
+                                                        }
+                                                        else
+                                                        {
+                                                                fprintf(stderr, "[%d]", exit_status[i]);
+                                                        }
+                                                }
+                                                fprintf(stderr, "\n");
+                                        }
                                         exit(0); // Exit child process
                                 }
 
