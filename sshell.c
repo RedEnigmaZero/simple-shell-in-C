@@ -112,7 +112,7 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
                                 close(pipes[j][1]);
                         }
 
-                        if (commands[i][0] == NULL && i + 1 <= pipe_count && commands[i+1][0] != NULL)
+                        if (commands[i][0] == NULL && commands[i+1][0] != NULL)
                         {
                             fprintf(stderr, "Error: missing command\n");
                             exit(1);
@@ -318,12 +318,12 @@ int main(void)
                         // Check for mislocated redirection
                         if (strchr(cmd_copy, '|') != NULL) {
                                 if (strchr(cmd_copy, '>') != NULL) {
-                                    fprintf(stderr, "Error: no output file\n");  // Change this line
+                                    fprintf(stderr, "Error: mislocated background sign\n");  // Change this line
                                     invalid_combination = 1;
                                     break;
                                 }
                                 if (strchr(cmd_copy, '<') != NULL) {
-                                    fprintf(stderr, "Error: no input file\n");  // And this one
+                                    fprintf(stderr, "Error: mislocated input redirection\n");  // And this one
                                     invalid_combination = 1;
                                     break;
                                 }
