@@ -254,6 +254,20 @@ int redirection(char *cmdline)  // Change return type to int
         return 1;
 }
 
+int check_background_sign(const char *cmd) {
+    char *amp = strrchr(cmd, '&');
+    if (!amp) return 0;
+
+    // Check if anything non-whitespace after &
+    char *next = amp + 1;
+    while (*next != '\0') {
+        if (*next != ' ' && *next != '\t' && *next != '\n')
+            return 1;  // Error: content after &
+        next++;
+    }
+    return 0;  // Valid background sign
+}
+
 int main(void)
 {
         char cmd[CMDLINE_MAX];
@@ -369,6 +383,15 @@ int main(void)
                         continue;
                 }
 
+                // Check for mislocated background sign before setting command type
+                if (strchr(cmd_copy, '&') != NULL) {
+                    if (check_background_sign(cmd_copy)) {
+                        fprintf(stderr, "Error: mislocated background sign\n");
+                        continue;
+                    }
+                    s = 3;
+                }
+
                 if (strchr(cmd_copy, '|') != NULL)
                 {
                         s = 1;
@@ -376,10 +399,6 @@ int main(void)
                 if (strchr(cmd_copy, '>') != NULL || strchr(cmd_copy, '<') != NULL)
                 {
                         s = 2;
-                }
-                if (strchr(cmd_copy, '&') != NULL)
-                {
-                        s = 3;
                 }
 
                 //fprintf(stderr, "s = '%d'", s);
