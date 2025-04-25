@@ -397,13 +397,17 @@ int main(void)
                                         int exit_status[4] = {0}; // Max 4 commands (3 pipes)
                                         piping(cmd_copy, pipe_count, exit_status);
 
-                                        int sum;
-                                        for (int i = 0; i < 4; i++)
+                                        int sum = 0;
+                                        for (int i = 0; i < pipe_count; i++)
                                         {
-                                                sum += exit_status[i];
+                                                if (exit_status[i] != 0)
+                                                {
+                                                        sum = 1;
+                                                        break;
+                                                }
                                         }
 
-                                        if (sum < 0)
+                                        if (!sum)
                                         {
                                                 // Only parent should print completion message
                                                 fprintf(stderr, "+ completed '%s'", cmd_copy);
