@@ -147,6 +147,26 @@ void piping(char *cmdline, int pipe_count, int *exit_status)
                         exit_status[i] = 1;
                 }
         }
+
+        // After collecting all exit statuses, check for errors and print completion
+        int has_error = 0;
+        for (i = 0; i <= pipe_count; i++) {
+                if (exit_status[i] != 0) {
+                        has_error = 1;
+                        break;
+                }
+        }
+
+        if (!has_error) {
+                fprintf(stderr, "+ completed '%s'", cmdline);
+                for (i = 0; i <= pipe_count; i++) {
+                        if (i == 0)
+                                fprintf(stderr, " [%d]", exit_status[i]);
+                        else
+                                fprintf(stderr, "[%d]", exit_status[i]);
+                }
+                fprintf(stderr, "\n");
+        }
 }
 
 int redirection(char *cmdline)  // Change return type to int
@@ -410,35 +430,7 @@ int main(void)
                                 {
                                         int exit_status[4] = {0}; // Max 4 commands (3 pipes)
                                         piping(cmd_copy, pipe_count, exit_status);
-
-                                        int sum = 0;
-                                        for (int i = 0; i < pipe_count; i++)
-                                        {
-                                                if (exit_status[i] != 0)
-                                                {
-                                                        sum = 1;
-                                                        break;
-                                                }
-                                        }
-
-                                        if (!sum)
-                                        {
-                                                // Only parent should print completion message
-                                                fprintf(stderr, "+ completed '%s'", cmd_copy);
-                                                for (int i = 0; i <= pipe_count; i++)
-                                                {
-                                                        if (i == 0)
-                                                        {
-                                                                fprintf(stderr, " [%d]", exit_status[i]);
-                                                        }
-                                                        else
-                                                        {
-                                                                fprintf(stderr, "[%d]", exit_status[i]);
-                                                        }
-                                                }
-                                                fprintf(stderr, "\n");
-                                        }
-                                        exit(0); // Exit child process
+                                        exit(0);
                                 }
 
                         case 2:
