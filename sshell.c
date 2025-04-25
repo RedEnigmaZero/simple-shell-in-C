@@ -288,8 +288,17 @@ int main(void)
                 /* Builtin command */
                 if (!strcmp(cmd, "exit"))
                 { // this does not allow for whitespace like the sshell_ref does, but will let slide (THE NEW SSHELL_REF ACCOUNTS FOR THIS!!!)
-                        fprintf(stderr, "Bye...\n");
-                        fprintf(stderr, "+ completed 'exit' [0]\n");
+                        if (bg_pid != -1)
+                        {
+                                fprintf(stderr, "Error: active job still running\n");
+                                fprintf(stderr, "+ completed 'exit' [1]\n");
+                                fprintf(stderr, "Bye...\n");
+                                continue;
+                        } else
+                        {
+                                fprintf(stderr, "Bye...\n");
+                                fprintf(stderr, "+ completed 'exit' [0]\n");
+                        }
                         break;
                 }
 
@@ -341,14 +350,14 @@ int main(void)
                         // Check for mislocated redirection
                         if (strchr(cmd_copy, '|') != NULL) {
                                 if (strchr(cmd_copy, '>') != NULL) {
-                                        fprintf(stderr, "Error: mislocated output redirection\n");  // idk
-                                        invalid_combination = 1;
-                                        break;
+                                    fprintf(stderr, "Error: mislocated background sign\n");  // Change this line
+                                    invalid_combination = 1;
+                                    break;
                                 }
                                 if (strchr(cmd_copy, '<') != NULL) {
-                                        fprintf(stderr, "Error: mislocated input redirection\n");
-                                        invalid_combination = 1;
-                                        break;
+                                    fprintf(stderr, "Error: mislocated input redirection\n");  // And this one
+                                    invalid_combination = 1;
+                                    break;
                                 }
                         }
 
@@ -422,21 +431,6 @@ int main(void)
                         continue;
                 }
 
-                // added
-                // Handle background command (remove the '&' from the command)
-                char clean_cmd[CMDLINE_MAX];
-                strcpy(clean_cmd, cmd_copy);
-                if (s == 3) {
-                        char *amp = strchr(clean_cmd, '&');
-                        if (amp) *amp = '\0';
-                
-                        // Remove trailing whitespace
-                        int len = strlen(clean_cmd);
-                        while (len > 0 && (clean_cmd[len-1] == ' ' || clean_cmd[len-1] == '\t')) {
-                                clean_cmd[--len] = '\0';
-                        }
-                }
-
                 pid_t pid = fork();
                 if (pid == 0)
                 {
@@ -497,10 +491,9 @@ int main(void)
                         // parent
                         if (s == 3)
                         {
-                                // Store background process info and report immediately
+                                // Store background process info
                                 bg_pid = pid;
-                                strncpy(bg_cmd, clean_cmd, CMDLINE_MAX);
-                                fprintf(stderr, "+ completed '%s&' [%d]\n", clean_cmd, 0); // Print & in the command
+                                strncpy(bg_cmd, cmd_copy, CMDLINE_MAX);
                         }
                         else 
                         {
@@ -511,7 +504,7 @@ int main(void)
                                         int bg_status;
                                         if (waitpid(bg_pid, &bg_status, WNOHANG) > 0) {
                                                 fprintf(stderr, "+ completed '%s' [%d]\n", 
-                                                bg_cmd, WEXITSTATUS(bg_status));
+                                                        bg_cmd, WEXITSTATUS(bg_status));
                                                 bg_pid = -1;
                                         }
                                 }
@@ -520,10 +513,16 @@ int main(void)
                                 waitpid(pid, &status, 0);
                                 if (s != 1 && !(s == 2 && WEXITSTATUS(status) != 0))
                                 {
-                                fprintf(stderr, "+ completed '%s' [%d]\n", 
-                                        cmd_copy, WEXITSTATUS(status));
+                                        fprintf(stderr, "+ completed '%s' [%d]\n", 
+                                                cmd_copy, WEXITSTATUS(status));
                                 }
                         }
+                        
+                }
+                else
+                {
+                        perror("fork");
+                        continue; // allow shell to continue upon fork error
                 }
         }
 
